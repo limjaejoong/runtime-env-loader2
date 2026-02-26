@@ -1,5 +1,6 @@
 'use strict';
 
+const path = require('path');
 const { loadFromLocalFile, loadFromSecretsManager } = require('./providers');
 
 const DEFAULT_SECRET_ENV_MAP = {
@@ -50,68 +51,103 @@ async function initSecretsEnv(options = {}) {
   const {
     secretName,
     region,
-    localFilePath,
-    preferLocalFile = true,
+    configDir = 'config',
+    envName,
     overwrite = false,
     secretEnvMap = DEFAULT_SECRET_ENV_MAP,
-    managerClient,
-    useSecretsManager = true,
-    requireSecretsManager = true
+    managerClient
   } = options;
 
-  let localSource = null;
+  const runtimeEnvRaw = envName || process.env.APP_ENV || process.env.RUNTIME_ENV || process.env.NODE_ENV || 'dev';
+  const runtimeEnv = String(runtimeEnvRaw).toLowerCase() === 'development'
+    ? 'dev'
+    : String(runtimeEnvRaw).toLowerCase() === 'production'
+      ? 'prod'
+      : String(runtimeEnvRaw).toLowerCase() === 'qa'
+        ? 'sqa'
+        : String(runtimeEnvRaw).toLowerCase();
+
+  const resolvedCommonFilePath = path.resolve(configDir, 'config.json');
+  const resolvedEnvFilePath = path.resolve(configDir, `config-${runtimeEnv}.json`);
+  const resolvedLocalFilePath = path.resolve(configDir, 'config-local-override.json');
+
+  let commonSource = null;
+  let envSource = null;
   let secretSource = null;
+  let localSource = null;
   let loadedFrom = null;
   const loadedSources = [];
   const errors = [];
-  const injectedKeys = [];
-  const mappedKeys = [];
+  const mergedSource = {};
 
-  if (preferLocalFile && localFilePath) {
-    try {
-      localSource = loadFromLocalFile(localFilePath);
-      if (localSource) {
-        loadedSources.push('local-file');
-        injectedKeys.push(...applyRawEnv(localSource, { overwrite }));
-        mappedKeys.push(...applyMappedEnv(localSource, { overwrite, secretEnvMap }));
-      }
-    } catch (error) {
-      errors.push({ source: 'local-file', message: error.message });
+  // Priority base layer 1: config.json
+  try {
+    commonSource = loadFromLocalFile(resolvedCommonFilePath);
+    if (commonSource) {
+      loadedSources.push('config');
+      Object.assign(mergedSource, commonSource);
     }
+  } catch (error) {
+    errors.push({ source: 'config', message: error.message });
   }
 
-  if (useSecretsManager && secretName) {
-    try {
-      secretSource = await loadFromSecretsManager({
-        secretName,
-        region,
-        client: managerClient
-      });
-      if (secretSource) {
-        loadedSources.push('secrets-manager');
-        // Always add only missing values from secrets manager.
-        injectedKeys.push(...applyRawEnv(secretSource, { overwrite: false }));
-        mappedKeys.push(...applyMappedEnv(secretSource, { overwrite: false, secretEnvMap }));
-      }
-    } catch (error) {
-      errors.push({ source: 'secrets-manager', message: error.message });
+  // Priority base layer 2: config-{env}.json
+  try {
+    envSource = loadFromLocalFile(resolvedEnvFilePath);
+    if (envSource) {
+      loadedSources.push(`config-${runtimeEnv}`);
+      Object.assign(mergedSource, envSource);
     }
+  } catch (error) {
+    errors.push({ source: `config-${runtimeEnv}`, message: error.message });
   }
 
-  if (requireSecretsManager && !loadedSources.includes('secrets-manager')) {
+  // Priority layer 3: secret-manager (required by default)
+  try {
+    if (!secretName) {
+      throw new Error('secretName is required');
+    }
+    secretSource = await loadFromSecretsManager({
+      secretName,
+      region,
+      client: managerClient
+    });
+    if (secretSource) {
+      loadedSources.push('secrets-manager');
+      Object.assign(mergedSource, secretSource);
+    }
+  } catch (error) {
+    errors.push({ source: 'secrets-manager', message: error.message });
+  }
+
+  // Priority layer 4 (highest): config-local-override.json
+  try {
+    localSource = loadFromLocalFile(resolvedLocalFilePath);
+    if (localSource) {
+      loadedSources.push('config-local-override');
+      Object.assign(mergedSource, localSource);
+    }
+  } catch (error) {
+    errors.push({ source: 'config-local-override', message: error.message });
+  }
+
+  if (!loadedSources.includes('secrets-manager')) {
     errors.push({
       source: 'secrets-manager',
       message: secretName
         ? `required secret "${secretName}" could not be loaded`
-        : 'secretName is required when requireSecretsManager=true'
+        : 'secretName is required'
     });
     return {
       loaded: false,
       loadedFrom,
       loadedSources,
-      injectedKeys,
-      mappedKeys,
-      source: localSource || null,
+      injectedKeys: [],
+      mappedKeys: [],
+      source: Object.keys(mergedSource).length > 0 ? mergedSource : null,
+      runtimeEnv,
+      commonSource,
+      envSource,
       localSource,
       secretSource,
       errors
@@ -126,9 +162,13 @@ async function initSecretsEnv(options = {}) {
       injectedKeys: [],
       mappedKeys: [],
       source: null,
+      runtimeEnv,
       errors
     };
   }
+
+  const injectedKeys = applyRawEnv(mergedSource, { overwrite });
+  const mappedKeys = applyMappedEnv(mergedSource, { overwrite, secretEnvMap });
 
   loadedFrom = loadedSources[0];
 
@@ -138,7 +178,10 @@ async function initSecretsEnv(options = {}) {
     loadedSources,
     injectedKeys,
     mappedKeys,
-    source: localSource || secretSource,
+    source: mergedSource,
+    runtimeEnv,
+    commonSource,
+    envSource,
     localSource,
     secretSource,
     errors

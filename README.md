@@ -14,6 +14,56 @@
 npm install ../secrets-env-loader
 ```
 
+## 샘플 실행
+
+이 저장소에는 로컬 확인용 샘플이 포함되어 있습니다.
+
+```bash
+npm run sample:dev
+```
+
+샘플은 `APP_ENV` 기준으로 아래 두 파일을 모두 읽습니다.
+- `sample/.env`
+- `sample/.env.{env}` (예: `APP_ENV=dev`면 `sample/.env.dev`)
+
+중복 키 우선순위:
+- `sample/.env.{env}` > `sample/.env`
+
+`.env`에 아래 값을 넣어 사용합니다.
+- `AWS_PROFILE` (필수)
+- `AWS_REGION` (선택, 미지정 시 기본값 `ap-northeast-2`)
+- `SECRET_NAME` (필수)
+
+실행 스크립트:
+- `npm run sample:dev`
+- `npm run sample:sqa`
+- `npm run sample:uat`
+- `npm run sample:prod`
+- `npm run sample:frontend:dev`
+- `npm run sample:frontend:sqa`
+- `npm run sample:frontend:uat`
+- `npm run sample:frontend:prod`
+
+로그에서 아래를 확인할 수 있습니다.
+- 로드된 `.env` 파일
+- `AWS_PROFILE`, `AWS_REGION`, `SECRET_NAME`
+- `config -> config-{env} -> secret-manager -> config-local-override` 로드 순서
+- 최종 병합 결과(`config-local-override > secret-manager > config-{env} > config`)
+
+백엔드 샘플(`sample/run-backend.js`)은 백엔드 로딩/병합을 검증합니다.
+
+프론트 샘플(`sample/run-frontend.js`)은 아래를 검증합니다.
+- 서버에서 `getPublicEnv`로 공개 키만 노출
+- 클라이언트에서 `loadPublicEnv(fetchImpl)`로 런타임 설정 로드
+- `mergePublicEnv`로 빌드 설정 + 런타임 설정 병합
+
+## config 폴더 규칙
+
+`sample/config` 폴더에 아래 파일명을 사용합니다.
+- `config.json`: 공통 설정
+- `config-dev.json`, `config-sqa.json`, `config-uat.json`, `config-prod.json`: 환경별 설정
+- `config-local-override.json`: 로컬 전용 override 설정 (최우선)
+
 ## 프로젝트 구조 요약
 
 - `src/index.js`: Node(백엔드) 엔트리
@@ -26,10 +76,16 @@ npm install ../secrets-env-loader
 ## 동작 흐름 요약
 
 `initSecretsEnv(options)` 기본 동작:
-- `preferLocalFile=true` + `localFilePath`가 있으면 로컬 파일을 먼저 로드
-- `useSecretsManager=true` + `secretName`이 있으면 Secrets Manager를 로드
-- Secrets Manager 값은 항상 "없는 키만" 채움 (로컬/기존 env 덮어쓰지 않음)
-- 기본적으로 `requireSecretsManager=true`라서 Secrets Manager 로드 실패 시 `loaded=false`
+- `config/config.json` 로드
+- `config/config-{env}.json` 로드 (`env`: `dev`, `sqa`, `uat`, `prod`)
+- Secrets Manager 로드
+- `config/config-local-override.json` 로드
+- 병합 우선순위(높음 -> 낮음):
+  - `config-local-override.json`
+  - `secret-manager`
+  - `config-{env}.json`
+  - `config.json`
+- 로컬 포함 모든 환경에서 Secrets Manager 연동 실패 시 `loaded=false`
 
 ## 어디서 사용할 수 있나
 
@@ -57,14 +113,15 @@ npm install ../secrets-env-loader
 
 옵션:
 - `secretName` string (예: `tac-api/uat`)
-- `region` string
-- `localFilePath` string
-- `preferLocalFile` boolean (기본값: `true`)
+- `region` string (선택, 기본값: `ap-northeast-2`)
+- `configDir` string (기본값: `config`)
+- `envName` string (예: `dev`, `sqa`, `uat`, `prod`)
 - `overwrite` boolean (기본값: `false`)
-- `useSecretsManager` boolean (기본값: `true`)
-- `requireSecretsManager` boolean (기본값: `true`)
 - `secretEnvMap` object
 - `managerClient` AWS SecretsManager client (테스트/커스터마이징용)
+
+정책:
+- Secrets Manager 연동은 모든 환경(로컬 포함)에서 필수입니다.
 
 반환값:
 - `{ loaded, loadedFrom, loadedSources, injectedKeys, mappedKeys, source, localSource, secretSource, errors }`
@@ -115,8 +172,8 @@ const { initSecretsEnv, getServerEnv } = require('secrets-env-loader');
 
 await initSecretsEnv({
   secretName: 'tac-api/uat',
-  localFilePath: './infrastructure/config.development.json',
-  preferLocalFile: true
+  envName: 'uat',
+  configDir: './config'
 });
 
 const serverEnv = getServerEnv({
@@ -135,8 +192,7 @@ const {
 } = require('secrets-env-loader');
 
 await initSecretsEnv({
-  secretName: 'tac-web/prod',
-  requireSecretsManager: true
+  secretName: 'tac-web/prod'
 });
 
 app.get('/api/runtime-config', createPublicEnvHandler({

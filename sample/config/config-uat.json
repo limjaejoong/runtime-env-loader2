@@ -1,0 +1,8 @@
+{
+  "LOG_LEVEL": "info",
+  "API_BASE_URL": "https://api-uat.example.com",
+  "FEATURE_X_ENABLED": "true",
+  "PUBLIC_REGION": "uat",
+  "UAT_ONLY_FLAG": "true",
+  "SHARED_PRIORITY_KEY": "from-uat"
+}

@@ -1,5 +1,7 @@
 'use strict';
 
+const DEFAULT_AWS_REGION = 'ap-northeast-2';
+
 function loadFromLocalFile(localFilePath) {
   if (!localFilePath) return null;
   const fs = require('fs');
@@ -16,19 +18,26 @@ function loadFromLocalFile(localFilePath) {
 async function loadFromSecretsManager(options = {}) {
   const {
     secretName,
-    region = process.env.AWS_REGION || 'ap-northeast-2',
+    region,
     client
   } = options;
+  const resolvedRegion = region || process.env.AWS_REGION || DEFAULT_AWS_REGION;
 
   if (!secretName) {
     throw new Error('secretName is required to load from Secrets Manager');
   }
-  const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
-
-  const secretsClient = client || new SecretsManagerClient({ region });
+  let secretsClient = client;
+  let commandPayload = null;
+  if (!secretsClient) {
+    const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
+    secretsClient = new SecretsManagerClient({ region: resolvedRegion });
+    commandPayload = new GetSecretValueCommand({ SecretId: secretName });
+  } else {
+    commandPayload = { SecretId: secretName };
+  }
 
   try {
-    const response = await secretsClient.send(new GetSecretValueCommand({ SecretId: secretName }));
+    const response = await secretsClient.send(commandPayload);
 
     if (!response) return null;
     if (response.SecretString) {
@@ -51,7 +60,7 @@ async function loadFromSecretsManager(options = {}) {
     return null;
   } catch (error) {
     throw new Error(
-      `Failed to load secret from Secrets Manager (secretName=${secretName}, region=${region}): ${error.message}`
+      `Failed to load secret from Secrets Manager (secretName=${secretName}, region=${resolvedRegion}): ${error.message}`
     );
   }
 }

@@ -1,0 +1,7 @@
+{
+  "LOG_LEVEL": "trace",
+  "API_BASE_URL": "http://localhost:3000",
+  "PUBLIC_REGION": "local",
+  "LOCAL_ONLY_FLAG": "true",
+  "SHARED_PRIORITY_KEY": "from-local"
+}

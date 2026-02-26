@@ -1,0 +1,8 @@
+{
+  "APP_NAME": "secrets-env-loader-sample",
+  "LOG_LEVEL": "info",
+  "API_BASE_URL": "https://api.example.com",
+  "FEATURE_X_ENABLED": "false",
+  "PUBLIC_REGION": "global",
+  "SHARED_PRIORITY_KEY": "from-common"
+}
