@@ -1,21 +1,21 @@
 'use strict';
 
 const {
-  initSecretsEnv,
-  applyRawEnv,
-  applyMappedEnv,
-  DEFAULT_SECRET_ENV_MAP
+  initSecretsEnv
 } = require('./init');
-const { getPublicEnv, createPublicEnvHandler } = require('./public');
-const { loadFromLocalFile, loadFromSecretsManager } = require('./providers');
+const {
+  getPublicEnv,
+  createPublicEnvHandler,
+  loadPublicEnv,
+  mergePublicEnv
+} = require('./public');
+const { getServerEnv } = require('./server');
 
 module.exports = {
   initSecretsEnv,
-  applyRawEnv,
-  applyMappedEnv,
-  DEFAULT_SECRET_ENV_MAP,
+  getServerEnv,
   getPublicEnv,
   createPublicEnvHandler,
-  loadFromLocalFile,
-  loadFromSecretsManager
+  loadPublicEnv,
+  mergePublicEnv
 };

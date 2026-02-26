@@ -1,11 +1,9 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
-
 function loadFromLocalFile(localFilePath) {
   if (!localFilePath) return null;
+  const fs = require('fs');
+  const path = require('path');
 
   const resolved = path.resolve(localFilePath);
   if (!fs.existsSync(resolved)) return null;
@@ -25,6 +23,7 @@ async function loadFromSecretsManager(options = {}) {
   if (!secretName) {
     throw new Error('secretName is required to load from Secrets Manager');
   }
+  const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
 
   const secretsClient = client || new SecretsManagerClient({ region });
 

@@ -33,7 +33,35 @@ function createPublicEnvHandler(options = {}) {
   };
 }
 
+async function loadPublicEnv(options = {}) {
+  const {
+    endpoint = '/api/runtime-config',
+    fetchImpl = (typeof globalThis !== 'undefined' ? globalThis.fetch : null),
+    requestInit
+  } = options;
+
+  if (typeof fetchImpl !== 'function') {
+    throw new Error('loadPublicEnv requires fetch implementation');
+  }
+
+  const response = await fetchImpl(endpoint, requestInit);
+  if (!response || !response.ok) {
+    const status = response ? response.status : 'unknown';
+    throw new Error(`Failed to load public env (status=${status})`);
+  }
+
+  const body = await response.json();
+  if (!body || typeof body !== 'object') return {};
+  return body;
+}
+
+function mergePublicEnv(...sources) {
+  return Object.assign({}, ...sources.filter((item) => item && typeof item === 'object'));
+}
+
 module.exports = {
   getPublicEnv,
-  createPublicEnvHandler
+  createPublicEnvHandler,
+  loadPublicEnv,
+  mergePublicEnv
 };
