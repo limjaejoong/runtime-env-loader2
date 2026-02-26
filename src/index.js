@@ -1,21 +1,10 @@
 'use strict';
 
-const {
-  initSecretsEnv
-} = require('./init');
-const {
-  getPublicEnv,
-  createPublicEnvHandler,
-  loadPublicEnv,
-  mergePublicEnv
-} = require('./public');
-const { getServerEnv } = require('./server');
+const { initRuntimeEnv } = require('./init');
+const { getServerEnv, getServerEnvKeys } = require('./server');
 
 module.exports = {
-  initSecretsEnv,
+  initRuntimeEnv,
   getServerEnv,
-  getPublicEnv,
-  createPublicEnvHandler,
-  loadPublicEnv,
-  mergePublicEnv
+  getServerEnvKeys
 };

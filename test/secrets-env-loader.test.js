@@ -1,87 +1,91 @@
 'use strict';
 
 const assert = require('assert');
-const path = require('path');
+const { applyRawEnv } = require('../src/init');
 const {
-  applyRawEnv,
-  applyMappedEnv,
-  getPublicEnv,
-  initSecretsEnv
+  getServerEnv,
+  getServerEnvKeys
 } = require('../src');
+const { loadBrowserEnv, getBrowserEnv, getBrowserEnvKeys } = require('../src/browser');
 
 async function run() {
   const beforeFoo = process.env.FOO;
-  const beforeMapped = process.env.API_KEY;
 
   const rawKeys = applyRawEnv({ FOO: 'BAR' }, { overwrite: true });
   assert.deepStrictEqual(rawKeys, ['FOO']);
   assert.strictEqual(process.env.FOO, 'BAR');
 
-  const mappedKeys = applyMappedEnv({ CORE_SLS_APIKEY: 'ABC' }, { overwrite: true });
-  assert.deepStrictEqual(mappedKeys, ['API_KEY']);
-  assert.strictEqual(process.env.API_KEY, 'ABC');
+  const beforeSelectedKeys = {
+    NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
+    PUBLIC_REGION: process.env.PUBLIC_REGION,
+    CUSTOM_PUBLIC_FLAG: process.env.CUSTOM_PUBLIC_FLAG,
+    APP_NAME: process.env.APP_NAME
+  };
+  process.env.NEXT_PUBLIC_APP_NAME = 'web';
+  process.env.PUBLIC_REGION = 'apne2';
+  process.env.CUSTOM_PUBLIC_FLAG = 'yes';
+  process.env.APP_NAME = 'portal';
 
-  const publicEnv = getPublicEnv({
-    source: {
-      NEXT_PUBLIC_APP_NAME: 'web',
-      PUBLIC_REGION: 'apne2',
-      PRIVATE_KEY: 'hidden',
-      CUSTOM_PUBLIC_FLAG: 'no'
-    },
-    allowlist: ['CUSTOM_PUBLIC_FLAG']
-  });
-  assert.deepStrictEqual(publicEnv, {
+  const selectedPublic = {
+    NEXT_PUBLIC_APP_NAME: getServerEnv('NEXT_PUBLIC_APP_NAME'),
+    PUBLIC_REGION: getServerEnv('PUBLIC_REGION'),
+    CUSTOM_PUBLIC_FLAG: getServerEnv('CUSTOM_PUBLIC_FLAG')
+  };
+  assert.deepStrictEqual(selectedPublic, {
     NEXT_PUBLIC_APP_NAME: 'web',
     PUBLIC_REGION: 'apne2',
-    CUSTOM_PUBLIC_FLAG: 'no'
+    CUSTOM_PUBLIC_FLAG: 'yes'
   });
 
-  const initResult = await initSecretsEnv({
-    preferLocalFile: true,
-    localFilePath: path.resolve(__dirname, 'fixtures', 'sample-secret.json'),
-    overwrite: true,
-    requireSecretsManager: false
+  process.env.PUBLIC_REGION = 'local-region';
+  const selectedWithoutSecrets = {
+    PUBLIC_REGION: getServerEnv('PUBLIC_REGION'),
+    APP_NAME: getServerEnv('APP_NAME')
+  };
+  assert.deepStrictEqual(selectedWithoutSecrets, {
+    PUBLIC_REGION: 'local-region',
+    APP_NAME: 'portal'
   });
-  assert.strictEqual(initResult.loaded, true);
-  assert.strictEqual(initResult.loadedFrom, 'local-file');
-  assert.strictEqual(process.env.CORE_SLS_APIKEY, 'fixture-core-key');
-  assert.strictEqual(process.env.API_KEY, 'fixture-core-key');
 
-  const requiredFailure = await initSecretsEnv({
-    preferLocalFile: true,
-    localFilePath: path.resolve(__dirname, 'fixtures', 'sample-secret.json')
-  });
-  assert.strictEqual(requiredFailure.loaded, false);
-  assert.ok(Array.isArray(requiredFailure.errors) && requiredFailure.errors.length > 0);
+  assert.ok(!getServerEnvKeys().includes('APP_NAME'));
 
-  // local-first + secret-manager-missing-only
-  process.env.LOCAL_ONLY = 'local-value';
-  process.env.SHARED_KEY = 'from-local';
-  const merged = await initSecretsEnv({
-    preferLocalFile: true,
-    localFilePath: path.resolve(__dirname, 'fixtures', 'sample-secret.json'),
-    secretName: 'dummy/secret',
-    useSecretsManager: true,
-    managerClient: {
-      send: async () => ({
-        SecretString: JSON.stringify({
-          SHARED_KEY: 'from-secret',
-          SECRET_ONLY: 'secret-value'
-        })
+  const loadedRuntime = await loadBrowserEnv({
+    endpoint: '/api/runtime-config',
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        values: {
+          NEXT_PUBLIC_FEATURE_X: 'on',
+          PUBLIC_REGION: 'local-region',
+          APP_NAME: 'portal'
+        },
+        sourceMap: {
+          NEXT_PUBLIC_FEATURE_X: 'secrets-manager',
+          PUBLIC_REGION: 'config-local-override',
+          APP_NAME: 'config'
+        }
       })
-    }
+    })
   });
-  assert.strictEqual(merged.loaded, true);
-  assert.ok(merged.loadedSources.includes('local-file'));
-  assert.ok(merged.loadedSources.includes('secrets-manager'));
-  assert.strictEqual(process.env.SHARED_KEY, 'from-local');
-  assert.strictEqual(process.env.SECRET_ONLY, 'secret-value');
 
-  // restore
+  assert.deepStrictEqual(loadedRuntime, {
+    PUBLIC_REGION: 'local-region',
+    APP_NAME: 'portal'
+  });
+  assert.strictEqual(getBrowserEnv('APP_NAME'), 'portal');
+  assert.ok(getBrowserEnvKeys().includes('PUBLIC_REGION'));
+
   if (beforeFoo == null) delete process.env.FOO;
   else process.env.FOO = beforeFoo;
-  if (beforeMapped == null) delete process.env.API_KEY;
-  else process.env.API_KEY = beforeMapped;
+  if (beforeSelectedKeys.NEXT_PUBLIC_APP_NAME == null) delete process.env.NEXT_PUBLIC_APP_NAME;
+  else process.env.NEXT_PUBLIC_APP_NAME = beforeSelectedKeys.NEXT_PUBLIC_APP_NAME;
+  if (beforeSelectedKeys.PUBLIC_REGION == null) delete process.env.PUBLIC_REGION;
+  else process.env.PUBLIC_REGION = beforeSelectedKeys.PUBLIC_REGION;
+  if (beforeSelectedKeys.CUSTOM_PUBLIC_FLAG == null) delete process.env.CUSTOM_PUBLIC_FLAG;
+  else process.env.CUSTOM_PUBLIC_FLAG = beforeSelectedKeys.CUSTOM_PUBLIC_FLAG;
+  if (beforeSelectedKeys.APP_NAME == null) delete process.env.APP_NAME;
+  else process.env.APP_NAME = beforeSelectedKeys.APP_NAME;
 
   console.log('secrets-env-loader tests passed');
 }

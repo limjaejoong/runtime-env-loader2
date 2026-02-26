@@ -1,14 +1,13 @@
 'use strict';
 
+const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const {
-  initSecretsEnv,
-  getPublicEnv,
-  loadPublicEnv,
-  mergePublicEnv
+  initRuntimeEnv,
+  getServerEnv
 } = require('../src');
-const DEFAULT_AWS_REGION = 'ap-northeast-2';
+const { loadBrowserEnv, getBrowserEnv, getBrowserEnvKeys } = require('../src/browser');
 
 function normalizeEnvName(raw) {
   const value = String(raw || '').toLowerCase();
@@ -62,69 +61,68 @@ function loadEnvFiles(runtimeEnv) {
 async function run() {
   const runtimeEnv = normalizeEnvName(process.env.APP_ENV || process.env.NODE_ENV || 'dev');
   const loadedEnvFiles = loadEnvFiles(runtimeEnv);
-  const useMock = process.env.SAMPLE_USE_MOCK !== 'false';
   const awsProfile = process.env.AWS_PROFILE;
   const secretName = process.env.SECRET_NAME;
-  const region = process.env.AWS_REGION || DEFAULT_AWS_REGION;
+  const region = process.env.AWS_REGION;
 
-  console.log('[frontend-sample] start');
-  console.log('[frontend-sample] runtimeEnv:', runtimeEnv);
-  console.log('[frontend-sample] loaded env files:', loadedEnvFiles);
-  console.log('[frontend-sample] AWS_PROFILE:', awsProfile || '(not set)');
-  console.log('[frontend-sample] SECRET_NAME:', secretName || '(not set)');
+  console.log('[run-server_browser] start');
+  console.log('[run-server_browser] runtimeEnv:', runtimeEnv);
+  console.log('[run-server_browser] loaded env files:', loadedEnvFiles);
+  console.log('[run-server_browser] AWS_PROFILE:', awsProfile || '(not set)');
+  console.log('[run-server_browser] SECRET_NAME:', secretName || '(not set)');
 
-  if (!awsProfile) throw new Error('AWS_PROFILE is required. Set it in sample/.env and/or sample/.env.{env}');
-  if (!secretName) throw new Error('SECRET_NAME is required. Set it in sample/.env and/or sample/.env.{env}');
+  const missingRequired = [];
+  if (!awsProfile) missingRequired.push('AWS_PROFILE');
+  if (!secretName) missingRequired.push('SECRET_NAME');
+  if (missingRequired.length > 0) {
+    throw new Error(`${missingRequired.join(', ')} is required. Set it in sample/.env and/or sample/.env.{env}`);
+  }
 
-  const managerClient = useMock
-    ? {
-      send: async () => ({
-        SecretString: JSON.stringify({
-          PUBLIC_REGION: 'secret-region',
-          NEXT_PUBLIC_FEATURE_X: 'on',
-          PRIVATE_SECRET_KEY: 'hidden-secret'
-        })
-      })
-    }
-    : undefined;
-
-  const initResult = await initSecretsEnv({
+  const initResult = await initRuntimeEnv({
     secretName,
     region,
     envName: runtimeEnv,
     configDir: path.resolve(__dirname, 'config'),
-    overwrite: true,
-    managerClient
+    runtimeConfigEnabled: true
   });
 
   if (!initResult.loaded) {
-    throw new Error(`initSecretsEnv failed: ${JSON.stringify(initResult.errors)}`);
+    throw new Error(`initRuntimeEnv failed: ${JSON.stringify(initResult.errors)}`);
   }
 
-  const runtimePublic = await loadPublicEnv({
+  const runtimePayload = initResult.runtimeConfig.handler();
+  const runtimePublic = await loadBrowserEnv({
     endpoint: '/api/runtime-config',
     fetchImpl: async () => ({
       ok: true,
       status: 200,
-      json: async () => getPublicEnv({
-        source: process.env,
-        allowlist: ['PUBLIC_REGION', 'APP_NAME'],
-        prefixes: ['NEXT_PUBLIC_', 'PUBLIC_']
-      })
+      json: async () => runtimePayload
     })
   });
   const buildPublic = {
     NEXT_PUBLIC_BUILD_MODE: runtimeEnv
   };
-  const merged = mergePublicEnv(buildPublic, runtimePublic);
+  const merged = Object.assign({}, buildPublic, runtimePublic);
+  const browserKeys = getBrowserEnvKeys().sort();
+  const expectedPublicKeys = Object.keys(runtimePublic).sort();
+  assert.deepStrictEqual(browserKeys, expectedPublicKeys);
 
-  console.log('[frontend-sample] runtimePublic:', runtimePublic);
-  console.log('[frontend-sample] mergedPublic:', merged);
+  Object.entries(runtimePayload.sourceMap || {}).forEach(([key, sourceName]) => {
+    if (sourceName === 'secrets-manager') {
+      assert.ok(!browserKeys.includes(key), `secrets-manager key leaked to browser keys: ${key}`);
+    }
+  });
 
-  console.log('[frontend-sample] done');
+  console.log('[run-server_browser] runtimePublic:', runtimePublic);
+  console.log('[run-server_browser] server raw NEXT_PUBLIC_FEATURE_X:', getServerEnv('NEXT_PUBLIC_FEATURE_X'));
+  console.log('[run-server_browser] getBrowserEnv(APP_NAME):', getBrowserEnv('APP_NAME'));
+  console.log('[run-server_browser] getBrowserEnvKeys() verified:', browserKeys);
+  console.log('[run-server_browser] mergedPublic:', merged);
+
+  console.log('[run-server_browser] done');
 }
 
 run().catch((error) => {
-  console.error('[frontend-sample] failed:', error);
+  console.error('[run-server_browser] failed:', error);
   process.exit(1);
 });

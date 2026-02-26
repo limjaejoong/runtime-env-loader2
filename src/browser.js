@@ -1,9 +1,9 @@
 'use strict';
 
-const { getPublicEnv, loadPublicEnv, mergePublicEnv } = require('./public');
+const { loadBrowserEnv, getBrowserEnv, getBrowserEnvKeys } = require('./public');
 
 module.exports = {
-  getPublicEnv,
-  loadPublicEnv,
-  mergePublicEnv
+  loadBrowserEnv,
+  getBrowserEnv,
+  getBrowserEnvKeys
 };

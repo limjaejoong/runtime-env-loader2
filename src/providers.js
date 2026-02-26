@@ -1,7 +1,5 @@
 'use strict';
 
-const DEFAULT_AWS_REGION = 'ap-northeast-2';
-
 function loadFromLocalFile(localFilePath) {
   if (!localFilePath) return null;
   const fs = require('fs');
@@ -18,23 +16,16 @@ function loadFromLocalFile(localFilePath) {
 async function loadFromSecretsManager(options = {}) {
   const {
     secretName,
-    region,
-    client
+    region
   } = options;
-  const resolvedRegion = region || process.env.AWS_REGION || DEFAULT_AWS_REGION;
+  const resolvedRegion = region;
 
   if (!secretName) {
     throw new Error('secretName is required to load from Secrets Manager');
   }
-  let secretsClient = client;
-  let commandPayload = null;
-  if (!secretsClient) {
-    const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
-    secretsClient = new SecretsManagerClient({ region: resolvedRegion });
-    commandPayload = new GetSecretValueCommand({ SecretId: secretName });
-  } else {
-    commandPayload = { SecretId: secretName };
-  }
+  const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
+  const secretsClient = new SecretsManagerClient({ region: resolvedRegion });
+  const commandPayload = new GetSecretValueCommand({ SecretId: secretName });
 
   try {
     const response = await secretsClient.send(commandPayload);

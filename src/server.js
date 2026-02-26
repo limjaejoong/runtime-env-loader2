@@ -1,37 +1,38 @@
 'use strict';
 
-function getServerEnv(options = {}) {
-  const {
-    source = process.env,
-    keys,
-    required = [],
-    defaults = {}
-  } = options;
+let trackedServerEnvKeys = [];
 
-  const result = {};
-  const targetKeys = Array.isArray(keys) && keys.length > 0
-    ? keys
-    : Object.keys(source || {});
+function shouldTrackSource(sourceName) {
+  if (!sourceName || typeof sourceName !== 'string') return false;
+  return sourceName.startsWith('config') || sourceName === 'secrets-manager';
+}
 
-  targetKeys.forEach((key) => {
-    if (!key) return;
-    const value = source && source[key] != null ? source[key] : defaults[key];
-    if (value == null) return;
-    result[key] = String(value);
-  });
-
-  const missingRequired = required.filter((key) => {
-    const value = source && source[key] != null ? source[key] : defaults[key];
-    return value == null;
-  });
-
-  if (missingRequired.length > 0) {
-    throw new Error(`Missing required server env keys: ${missingRequired.join(', ')}`);
+function setTrackedServerEnvKeys(sourceMap = {}) {
+  if (!sourceMap || typeof sourceMap !== 'object') {
+    trackedServerEnvKeys = [];
+    return;
   }
 
-  return result;
+  trackedServerEnvKeys = Object.keys(sourceMap).filter((key) => shouldTrackSource(sourceMap[key]));
+}
+
+function getTrackedServerEnvKeys() {
+  return trackedServerEnvKeys.slice();
+}
+
+function getServerEnv(key) {
+  if (!key || typeof key !== 'string') return null;
+  const value = process.env && process.env[key] != null ? process.env[key] : null;
+  if (value == null) return null;
+  return String(value);
+}
+
+function getServerEnvKeys() {
+  return getTrackedServerEnvKeys().filter((key) => process.env[key] != null);
 }
 
 module.exports = {
-  getServerEnv
+  getServerEnv,
+  getServerEnvKeys,
+  setTrackedServerEnvKeys
 };

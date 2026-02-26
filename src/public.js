@@ -1,39 +1,8 @@
 'use strict';
 
-function getPublicEnv(options = {}) {
-  const {
-    source = process.env,
-    allowlist = [],
-    prefix,
-    prefixes
-  } = options;
+let browserEnvCache = {};
 
-  const result = {};
-  const allowlistSet = new Set(allowlist);
-  const prefixList = Array.isArray(prefixes) && prefixes.length > 0
-    ? prefixes
-    : [prefix || 'NEXT_PUBLIC_', 'PUBLIC_'];
-
-  Object.entries(source || {}).forEach(([key, value]) => {
-    const byPrefix = typeof key === 'string' && prefixList.some((item) => key.startsWith(item));
-    const byAllowlist = allowlistSet.has(key);
-    if (!byPrefix && !byAllowlist) return;
-    if (value == null) return;
-    result[key] = String(value);
-  });
-
-  return result;
-}
-
-function createPublicEnvHandler(options = {}) {
-  const { statusCode = 200 } = options;
-
-  return function publicEnvHandler(_req, res) {
-    res.status(statusCode).json(getPublicEnv(options));
-  };
-}
-
-async function loadPublicEnv(options = {}) {
+async function loadBrowserEnv(options = {}) {
   const {
     endpoint = '/api/runtime-config',
     fetchImpl = (typeof globalThis !== 'undefined' ? globalThis.fetch : null),
@@ -41,7 +10,7 @@ async function loadPublicEnv(options = {}) {
   } = options;
 
   if (typeof fetchImpl !== 'function') {
-    throw new Error('loadPublicEnv requires fetch implementation');
+    throw new Error('loadBrowserEnv requires fetch implementation');
   }
 
   const response = await fetchImpl(endpoint, requestInit);
@@ -51,17 +20,40 @@ async function loadPublicEnv(options = {}) {
   }
 
   const body = await response.json();
-  if (!body || typeof body !== 'object') return {};
-  return body;
+  if (!body || typeof body !== 'object') {
+    browserEnvCache = {};
+    return browserEnvCache;
+  }
+
+  if (body.values && typeof body.values === 'object') {
+    const sourceMap = body.sourceMap && typeof body.sourceMap === 'object' ? body.sourceMap : {};
+    const filtered = {};
+    Object.entries(body.values).forEach(([key, value]) => {
+      if (sourceMap[key] === 'secrets-manager') return;
+      if (value == null) return;
+      filtered[key] = String(value);
+    });
+    browserEnvCache = filtered;
+    return browserEnvCache;
+  }
+
+  browserEnvCache = body;
+  return browserEnvCache;
 }
 
-function mergePublicEnv(...sources) {
-  return Object.assign({}, ...sources.filter((item) => item && typeof item === 'object'));
+function getBrowserEnv(key) {
+  if (!key || typeof key !== 'string') return null;
+  const value = browserEnvCache && browserEnvCache[key] != null ? browserEnvCache[key] : null;
+  if (value == null) return null;
+  return String(value);
+}
+
+function getBrowserEnvKeys() {
+  return Object.keys(browserEnvCache || {}).filter((key) => browserEnvCache[key] != null);
 }
 
 module.exports = {
-  getPublicEnv,
-  createPublicEnvHandler,
-  loadPublicEnv,
-  mergePublicEnv
+  loadBrowserEnv,
+  getBrowserEnv,
+  getBrowserEnvKeys
 };

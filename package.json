@@ -13,16 +13,17 @@
   },
   "scripts": {
     "test": "echo \"No tests configured\"",
-    "sample": "node sample/run-backend.js",
-    "sample:dev": "APP_ENV=dev node sample/run-backend.js",
-    "sample:sqa": "APP_ENV=sqa node sample/run-backend.js",
-    "sample:uat": "APP_ENV=uat node sample/run-backend.js",
-    "sample:prod": "APP_ENV=prod node sample/run-backend.js",
-    "sample:frontend": "APP_ENV=dev node sample/run-frontend.js",
-    "sample:frontend:dev": "APP_ENV=dev node sample/run-frontend.js",
-    "sample:frontend:sqa": "APP_ENV=sqa node sample/run-frontend.js",
-    "sample:frontend:uat": "APP_ENV=uat node sample/run-frontend.js",
-    "sample:frontend:prod": "APP_ENV=prod node sample/run-frontend.js"
+    "sample": "node sample/run-server.js",
+    "sample:dev": "APP_ENV=dev node sample/run-server.js",
+    "sample:sqa": "APP_ENV=sqa node sample/run-server.js",
+    "sample:uat": "APP_ENV=uat node sample/run-server.js",
+    "sample:prod": "APP_ENV=prod node sample/run-server.js",
+    "sample:frontend": "APP_ENV=dev node sample/run-server_browser.js",
+    "sample:frontend:dev": "APP_ENV=dev node sample/run-server_browser.js",
+    "sample:frontend:sqa": "APP_ENV=sqa node sample/run-server_browser.js",
+    "sample:frontend:uat": "APP_ENV=uat node sample/run-server_browser.js",
+    "sample:frontend:prod": "APP_ENV=prod node sample/run-server_browser.js",
+    "sample:spa": "node sample/run-serverless_browser.js"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.867.0"
