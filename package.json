@@ -1,0 +1,14 @@
+{
+  "name": "secrets-env-loader",
+  "version": "0.1.0",
+  "description": "Load env from AWS Secrets Manager/local file and expose safe public config",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "node test/secrets-env-loader.test.js"
+  },
+  "license": "MIT"
+}
