@@ -2,5 +2,6 @@
   "TEST_LOG_LEVEL": "trace",
   "TEST_ENV_KEY": "https://api-local.example.com",
   "TEST_API_BASE_URL": "http://localhost:3000",
-  "TEST_LOCAL_ONLY_FLAG": "true"
+  "TEST_LOCAL_ONLY_FLAG": "true",
+  "REACT_APP_SKILL_ID": "TEST_SKILL_ID"
 }

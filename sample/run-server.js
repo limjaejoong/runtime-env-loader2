@@ -61,6 +61,7 @@ async function run() {
   const awsProfile = process.env.AWS_PROFILE;
   const secretName = process.env.SECRET_NAME;
   const region = process.env.AWS_REGION;
+  const runtimeConfigEnabled = false;
 
   console.log('[run-server] start');
   console.log('[run-server] runtimeEnv:', runtimeEnv);
@@ -81,32 +82,38 @@ async function run() {
     envName: runtimeEnv,
     region,
     configDir: path.resolve(__dirname, 'config'),
-    runtimeConfigEnabled: true
+    requireSecretsManager: false,
+    runtimeConfigEnabled
   });
 
   console.log('[run-server] loaded:', result.loaded);
   console.log('[run-server] errors:', result.errors);
 
   const selected = {
-    APP_NAME: getServerEnv('APP_NAME'),
-    LOG_LEVEL: getServerEnv('LOG_LEVEL'),
-    API_BASE_URL: getServerEnv('API_BASE_URL'),
-    PUBLIC_REGION: getServerEnv('PUBLIC_REGION'),
-    SHARED_PRIORITY_KEY: getServerEnv('SHARED_PRIORITY_KEY'),
-    SECRET_ONLY_KEY: getServerEnv('SECRET_ONLY_KEY'),
-    CORE_SLS_APIKEY: getServerEnv('CORE_SLS_APIKEY'),
-    API_KEY: getServerEnv('API_KEY')
+    TEST_COMMON_KEY: getServerEnv('TEST_COMMON_KEY'),
+    TEST_LOG_LEVEL: getServerEnv('TEST_LOG_LEVEL'),
+    TEST_ENV_KEY: getServerEnv('TEST_ENV_KEY'),
+    TEST_LOCAL_ONLY_FLAG: getServerEnv('TEST_LOCAL_ONLY_FLAG'),
+    REACT_APP_SKILL_ID: getServerEnv('REACT_APP_SKILL_ID'),
+    REACT_APP_GA4_TRACKING_ID: getServerEnv('REACT_APP_GA4_TRACKING_ID'),
+    REACT_APP_ENVIORNMENT: getServerEnv('REACT_APP_ENVIORNMENT'),
+    REACT_APP_TWILIO_TASK_NAME: getServerEnv('REACT_APP_TWILIO_TASK_NAME')
   };
 
-  console.log('[run-server] selected env:', selected);
-  const runtimePayload = result.runtimeConfig && result.runtimeConfig.handler
-    ? result.runtimeConfig.handler()
-    : { values: {} };
-  const expectedServerKeys = Object.keys(runtimePayload.values || {}).sort();
   const actualServerKeys = getServerEnvKeys().sort();
-  assert.deepStrictEqual(actualServerKeys, expectedServerKeys);
+  if (runtimeConfigEnabled) {
+    const runtimePayload = result.runtimeConfig && result.runtimeConfig.handler
+      ? result.runtimeConfig.handler()
+      : { values: {} };
+    const expectedServerKeys = Object.keys(runtimePayload.values || {}).sort();
+    assert.deepStrictEqual(actualServerKeys, expectedServerKeys);
+  } else {
+    assert.ok(actualServerKeys.includes('TEST_COMMON_KEY'));
+    assert.ok(actualServerKeys.includes('TEST_LOG_LEVEL'));
+    assert.ok(actualServerKeys.includes('TEST_ENV_KEY'));
+  }
   console.log('[run-server] getServerEnvKeys() verified:', actualServerKeys);
-  console.log('[run-server] priority check SHARED_PRIORITY_KEY =', selected.SHARED_PRIORITY_KEY);
+  console.log('[run-server] selected env:', selected);
   console.log('[run-server] done');
 }
 

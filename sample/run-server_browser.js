@@ -83,7 +83,8 @@ async function run() {
     region,
     envName: runtimeEnv,
     configDir: path.resolve(__dirname, 'config'),
-    runtimeConfigEnabled: true
+    runtimeConfigEnabled: true,
+    requireSecretsManager: false,
   });
 
   if (!initResult.loaded) {
@@ -116,10 +117,10 @@ async function run() {
     }
   });
 
+  console.log('[run-server_browser] getBrowserEnvKeys() verified:', browserKeys);
   console.log('[run-server_browser] runtimePublic:', runtimePublic);
   console.log('[run-server_browser] server raw NEXT_PUBLIC_FEATURE_X:', getServerEnv('NEXT_PUBLIC_FEATURE_X'));
   console.log('[run-server_browser] getBrowserEnv(APP_NAME):', getBrowserEnv('APP_NAME'));
-  console.log('[run-server_browser] getBrowserEnvKeys() verified:', browserKeys);
   console.log('[run-server_browser] mergedPublic:', merged);
 
   console.log('[run-server_browser] done');

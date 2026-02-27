@@ -23,12 +23,17 @@ function applyRawEnv(source, options = {}) {
   return injectedKeys;
 }
 
-function applyLayer(mergedSource, sourceMap, sourceName, layerSource) {
-  if (!layerSource || typeof layerSource !== 'object') return;
+function applyLayer(mergedSource, sourceMap, sourceName, layerSource, options = {}) {
+  const { onlyExistingKeys = false } = options;
+  if (!layerSource || typeof layerSource !== 'object') return 0;
+  let appliedCount = 0;
   Object.entries(layerSource).forEach(([key, value]) => {
+    if (onlyExistingKeys && !Object.prototype.hasOwnProperty.call(mergedSource, key)) return;
     mergedSource[key] = value;
     sourceMap[key] = sourceName;
+    appliedCount += 1;
   });
+  return appliedCount;
 }
 
 async function initRuntimeEnv(options = {}) {
@@ -37,7 +42,8 @@ async function initRuntimeEnv(options = {}) {
     envName,
     region = 'ap-northeast-2',
     configDir = path.resolve(__dirname, 'config'),
-    runtimeConfigEnabled = false
+    runtimeConfigEnabled = false,
+    requireSecretsManager = true
   } = options;
 
   const runtimeEnv = envName;
@@ -73,18 +79,23 @@ async function initRuntimeEnv(options = {}) {
     errors.push({ source: `config-${runtimeEnv}`, message: error.message });
   }
 
-  // Priority layer 3: secret-manager (required by default)
+  let secretsManagerLoaded = false;
+
+  // Priority layer 3: secret-manager
   try {
-    if (!secretName) {
+    if (!secretName && requireSecretsManager) {
       throw new Error('secretName is required');
     }
-    const secretSource = await loadFromSecretsManager({
-      secretName,
-      region
-    });
-    if (secretSource) {
-      loadedSources.push('secrets-manager');
-      applyLayer(mergedSource, mergedSourceMap, 'secrets-manager', secretSource);
+    if (secretName) {
+      const secretSource = await loadFromSecretsManager({
+        secretName,
+        region
+      });
+      if (secretSource) {
+        secretsManagerLoaded = true;
+        loadedSources.push('secrets-manager');
+        applyLayer(mergedSource, mergedSourceMap, 'secrets-manager', secretSource);
+      }
     }
   } catch (error) {
     errors.push({ source: 'secrets-manager', message: error.message });
@@ -94,21 +105,28 @@ async function initRuntimeEnv(options = {}) {
   try {
     const localSource = loadFromLocalFile(resolvedLocalFilePath);
     if (localSource) {
-      loadedSources.push('config-local-override');
-      applyLayer(mergedSource, mergedSourceMap, 'config-local-override', localSource);
+      const appliedCount = applyLayer(mergedSource, mergedSourceMap, 'config-local-override', localSource, {
+        onlyExistingKeys: true
+      });
+      if (appliedCount > 0) loadedSources.push('config-local-override');
     }
   } catch (error) {
     errors.push({ source: 'config-local-override', message: error.message });
   }
 
-  if (!loadedSources.includes('secrets-manager')) {
+  if (requireSecretsManager && !secretsManagerLoaded) {
     setTrackedServerEnvKeys({});
-    errors.push({
-      source: 'secrets-manager',
-      message: secretName
-        ? `required secret "${secretName}" could not be loaded`
-        : 'secretName is required'
-    });
+    if (secretName) {
+      errors.push({
+        source: 'secrets-manager',
+        message: `required secret "${secretName}" could not be loaded`
+      });
+    } else {
+      errors.push({
+        source: 'secrets-manager',
+        message: 'secretName is required'
+      });
+    }
     return {
       loaded: false,
       errors,

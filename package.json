@@ -16,11 +16,12 @@
     "sample:server:dev": "APP_ENV=dev node sample/run-server.js",
     "sample:server:sqa": "APP_ENV=sqa node sample/run-server.js",
     "sample:server_browser:dev": "APP_ENV=dev node sample/run-server_browser.js",
-    "sample:server_browser:sqa": "APP_ENV=sqa node sample/run-server_browser.js",
-    "sample:serverless_browser:dev": "APP_ENV=dev node sample/run-serverless_browser.js",
-    "sample:serverless_browser:sqa": "APP_ENV=sqa node sample/run-serverless_browser.js"
+    "sample:server_browser:sqa": "APP_ENV=sqa node sample/run-server_browser.js"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.867.0"
+  },
+  "bin": {
+    "with-runtime-env": "./scripts/with-runtime-env.js"
   }
 }
