@@ -60,11 +60,15 @@ npm install runtime-env-loader
 - `configDir` string (기본값: `config`)
 - `runtimeConfigEnabled` boolean (기본값: `false`)
 - `requireSecretsManager` boolean (기본값: `true`)
+- `transformEnvKey`
+  - 배열 매핑: `[{ org: string, dest: string }]`
+  - (옵션, 로드 키명을 변환해서 주입)
 
 반환:
 - `loaded` boolean
 - `errors` `{ source, message }[]`
 - `runtimeConfig` `null | { path, handler }`
+- `loadedKeys` `Record<string, string>` (`initRuntimeEnv`가 로드한 전체 key/value)
 
 ### getServerEnv(key)
 

@@ -56,6 +56,10 @@ async function run() {
     TEST_LOG_LEVEL: process.env.TEST_LOG_LEVEL,
     TEST_ENV_KEY: process.env.TEST_ENV_KEY
   };
+  const beforeMappedKeys = {
+    MAPPED_COMMON_KEY: process.env.MAPPED_COMMON_KEY,
+    MAPPED_LOG_LEVEL: process.env.MAPPED_LOG_LEVEL
+  };
   const runtimeInitWithoutSecrets = await initRuntimeEnv({
     envName: 'dev',
     configDir: path.resolve(__dirname, '../sample/config'),
@@ -65,6 +69,20 @@ async function run() {
   assert.strictEqual(getServerEnv('TEST_COMMON_KEY'), 'runtime-env-loader-sample');
   assert.strictEqual(getServerEnv('TEST_LOG_LEVEL'), 'trace');
   assert.strictEqual(getServerEnv('TEST_ENV_KEY'), 'https://api-local.example.com');
+
+  const runtimeInitWithKeyMapArray = await initRuntimeEnv({
+    envName: 'dev',
+    configDir: path.resolve(__dirname, '../sample/config'),
+    requireSecretsManager: false,
+    transformEnvKey: [
+      { org: 'TEST_COMMON_KEY', dest: 'MAPPED_COMMON_KEY' },
+      { org: 'TEST_LOG_LEVEL', dest: 'MAPPED_LOG_LEVEL' }
+    ]
+  });
+  assert.strictEqual(runtimeInitWithKeyMapArray.loaded, true);
+  assert.strictEqual(getServerEnv('MAPPED_COMMON_KEY'), 'runtime-env-loader-sample');
+  assert.strictEqual(getServerEnv('MAPPED_LOG_LEVEL'), 'trace');
+  assert.strictEqual(runtimeInitWithKeyMapArray.loadedKeys.MAPPED_COMMON_KEY, 'runtime-env-loader-sample');
 
   const beforeFetch = globalThis.fetch;
   globalThis.fetch = async () => ({
@@ -149,6 +167,10 @@ async function run() {
   else process.env.TEST_LOG_LEVEL = beforeRuntimeKeys.TEST_LOG_LEVEL;
   if (beforeRuntimeKeys.TEST_ENV_KEY == null) delete process.env.TEST_ENV_KEY;
   else process.env.TEST_ENV_KEY = beforeRuntimeKeys.TEST_ENV_KEY;
+  if (beforeMappedKeys.MAPPED_COMMON_KEY == null) delete process.env.MAPPED_COMMON_KEY;
+  else process.env.MAPPED_COMMON_KEY = beforeMappedKeys.MAPPED_COMMON_KEY;
+  if (beforeMappedKeys.MAPPED_LOG_LEVEL == null) delete process.env.MAPPED_LOG_LEVEL;
+  else process.env.MAPPED_LOG_LEVEL = beforeMappedKeys.MAPPED_LOG_LEVEL;
 
   console.log('runtime-env-loader tests passed');
 }

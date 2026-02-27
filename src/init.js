@@ -36,6 +36,51 @@ function applyLayer(mergedSource, sourceMap, sourceName, layerSource, options = 
   return appliedCount;
 }
 
+function resolveTransformKeyFn(transformEnvKey) {
+  if (!Array.isArray(transformEnvKey)) return null;
+
+  const mapping = {};
+  transformEnvKey.forEach((item) => {
+    if (!item || typeof item !== 'object') return;
+    const { org, dest } = item;
+    if (typeof org !== 'string' || !org) return;
+    if (typeof dest !== 'string' || !dest) return;
+    mapping[org] = dest;
+  });
+
+  return (key) => mapping[key] || key;
+}
+
+function transformSourceKeys(sourceName, source, transformEnvKey, errors) {
+  if (!source || typeof source !== 'object') return source;
+  const transformKeyFn = resolveTransformKeyFn(transformEnvKey);
+  if (typeof transformKeyFn !== 'function') return source;
+
+  const transformed = {};
+  Object.entries(source).forEach(([key, value]) => {
+    let transformedKey = key;
+    try {
+      transformedKey = transformKeyFn(key, sourceName);
+    } catch (error) {
+      errors.push({
+        source: sourceName,
+        message: `transformEnvKey failed for key "${key}": ${error.message}`
+      });
+      return;
+    }
+
+    if (!transformedKey || typeof transformedKey !== 'string') {
+      errors.push({
+        source: sourceName,
+        message: `transformEnvKey must return a non-empty string (key="${key}")`
+      });
+      return;
+    }
+    transformed[transformedKey] = value;
+  });
+  return transformed;
+}
+
 async function initRuntimeEnv(options = {}) {
   const {
     secretName,
@@ -43,7 +88,8 @@ async function initRuntimeEnv(options = {}) {
     region = 'ap-northeast-2',
     configDir = path.resolve(__dirname, 'config'),
     runtimeConfigEnabled = false,
-    requireSecretsManager = true
+    requireSecretsManager = true,
+    transformEnvKey
   } = options;
 
   const runtimeEnv = envName;
@@ -56,10 +102,19 @@ async function initRuntimeEnv(options = {}) {
   const errors = [];
   const mergedSource = {};
   const mergedSourceMap = {};
+  const normalizedTransformEnvKey = Array.isArray(transformEnvKey) ? transformEnvKey : null;
+
+  if (transformEnvKey != null && !Array.isArray(transformEnvKey)) {
+    errors.push({
+      source: 'init',
+      message: 'transformEnvKey must be an array of { org, dest }'
+    });
+  }
 
   // Priority base layer 1: config.json
   try {
-    const commonSource = loadFromLocalFile(resolvedCommonFilePath);
+    const commonSourceRaw = loadFromLocalFile(resolvedCommonFilePath);
+    const commonSource = transformSourceKeys('config', commonSourceRaw, normalizedTransformEnvKey, errors);
     if (commonSource) {
       loadedSources.push('config');
       applyLayer(mergedSource, mergedSourceMap, 'config', commonSource);
@@ -70,7 +125,8 @@ async function initRuntimeEnv(options = {}) {
 
   // Priority base layer 2: config-{env}.json
   try {
-    const envSource = loadFromLocalFile(resolvedEnvFilePath);
+    const envSourceRaw = loadFromLocalFile(resolvedEnvFilePath);
+    const envSource = transformSourceKeys(`config-${runtimeEnv}`, envSourceRaw, normalizedTransformEnvKey, errors);
     if (envSource) {
       loadedSources.push(`config-${runtimeEnv}`);
       applyLayer(mergedSource, mergedSourceMap, `config-${runtimeEnv}`, envSource);
@@ -91,10 +147,16 @@ async function initRuntimeEnv(options = {}) {
         secretName,
         region
       });
-      if (secretSource) {
+      const transformedSecretSource = transformSourceKeys(
+        'secrets-manager',
+        secretSource,
+        normalizedTransformEnvKey,
+        errors
+      );
+      if (transformedSecretSource) {
         secretsManagerLoaded = true;
         loadedSources.push('secrets-manager');
-        applyLayer(mergedSource, mergedSourceMap, 'secrets-manager', secretSource);
+        applyLayer(mergedSource, mergedSourceMap, 'secrets-manager', transformedSecretSource);
       }
     }
   } catch (error) {
@@ -103,7 +165,13 @@ async function initRuntimeEnv(options = {}) {
 
   // Priority layer 4 (highest): config-local-override.json
   try {
-    const localSource = loadFromLocalFile(resolvedLocalFilePath);
+    const localSourceRaw = loadFromLocalFile(resolvedLocalFilePath);
+    const localSource = transformSourceKeys(
+      'config-local-override',
+      localSourceRaw,
+      normalizedTransformEnvKey,
+      errors
+    );
     if (localSource) {
       const appliedCount = applyLayer(mergedSource, mergedSourceMap, 'config-local-override', localSource, {
         onlyExistingKeys: true
@@ -130,7 +198,8 @@ async function initRuntimeEnv(options = {}) {
     return {
       loaded: false,
       errors,
-      runtimeConfig: null
+      runtimeConfig: null,
+      loadedKeys: {}
     };
   }
 
@@ -139,7 +208,8 @@ async function initRuntimeEnv(options = {}) {
     return {
       loaded: false,
       errors,
-      runtimeConfig: null
+      runtimeConfig: null,
+      loadedKeys: {}
     };
   }
 
@@ -186,7 +256,12 @@ async function initRuntimeEnv(options = {}) {
   return {
     loaded: true,
     errors,
-    runtimeConfig: runtimeConfigResult
+    runtimeConfig: runtimeConfigResult,
+    loadedKeys: Object.entries(mergedSource).reduce((acc, [key, value]) => {
+      if (value == null) return acc;
+      acc[key] = String(value);
+      return acc;
+    }, {})
   };
 }
 
