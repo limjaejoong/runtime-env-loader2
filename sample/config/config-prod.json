@@ -1,8 +1,0 @@
-{
-  "LOG_LEVEL": "warn",
-  "API_BASE_URL": "https://api.example.com",
-  "FEATURE_X_ENABLED": "true",
-  "PUBLIC_REGION": "prod",
-  "PROD_ONLY_FLAG": "true",
-  "SHARED_PRIORITY_KEY": "from-prod"
-}

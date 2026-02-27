@@ -49,25 +49,28 @@ async function run() {
 
   assert.ok(!getServerEnvKeys().includes('APP_NAME'));
 
-  const loadedRuntime = await loadBrowserEnv({
-    endpoint: '/api/runtime-config',
-    fetchImpl: async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        values: {
-          NEXT_PUBLIC_FEATURE_X: 'on',
-          PUBLIC_REGION: 'local-region',
-          APP_NAME: 'portal'
-        },
-        sourceMap: {
-          NEXT_PUBLIC_FEATURE_X: 'secrets-manager',
-          PUBLIC_REGION: 'config-local-override',
-          APP_NAME: 'config'
-        }
-      })
+  const beforeFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      values: {
+        NEXT_PUBLIC_FEATURE_X: 'on',
+        PUBLIC_REGION: 'local-region',
+        APP_NAME: 'portal'
+      },
+      sourceMap: {
+        NEXT_PUBLIC_FEATURE_X: 'secrets-manager',
+        PUBLIC_REGION: 'config-local-override',
+        APP_NAME: 'config'
+      }
     })
   });
+  const loadedRuntime = await loadBrowserEnv({
+    endpoint: '/api/runtime-config'
+  });
+  if (beforeFetch == null) delete globalThis.fetch;
+  else globalThis.fetch = beforeFetch;
 
   assert.deepStrictEqual(loadedRuntime, {
     PUBLIC_REGION: 'local-region',
@@ -87,7 +90,7 @@ async function run() {
   if (beforeSelectedKeys.APP_NAME == null) delete process.env.APP_NAME;
   else process.env.APP_NAME = beforeSelectedKeys.APP_NAME;
 
-  console.log('secrets-env-loader tests passed');
+  console.log('runtime-env-loader tests passed');
 }
 
 run().catch((error) => {

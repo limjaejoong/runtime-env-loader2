@@ -1,8 +1,4 @@
 {
-  "LOG_LEVEL": "debug",
-  "API_BASE_URL": "https://api-dev.example.com",
-  "FEATURE_X_ENABLED": "true",
-  "PUBLIC_REGION": "dev",
-  "DEV_ONLY_FLAG": "true",
-  "SHARED_PRIORITY_KEY": "from-dev"
+  "TEST_LOG_LEVEL": "debug",
+  "TEST_ENV_KEY": "https://api-dev.example.com"
 }

@@ -7,42 +7,43 @@ const { loadBrowserEnv, getBrowserEnv, getBrowserEnvKeys } = require('../src/bro
 
 async function run() {
   const endpoint = '/runtime-config.json';
-  const runtimeConfigPath = path.resolve(__dirname, 'runtime-config.json');
 
   console.log('[run-serverless_browser] start');
   console.log('[run-serverless_browser] endpoint:', endpoint);
-  console.log('[run-serverless_browser] runtime config path:', runtimeConfigPath);
 
   const buildEnv = {
     VITE_APP_NAME: process.env.VITE_APP_NAME || 'spa-build-default'
   };
 
   let runtimeEnv = {};
+  const beforeFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const normalized = String(url || '').replace(/^\//, '');
+    const filePath = path.resolve(__dirname, normalized);
+    if (!fs.existsSync(filePath)) {
+      return {
+        ok: false,
+        status: 404,
+        json: async () => ({})
+      };
+    }
+    const text = fs.readFileSync(filePath, 'utf8');
+    return {
+      ok: true,
+      status: 200,
+      json: async () => JSON.parse(text)
+    };
+  };
   try {
     runtimeEnv = await loadBrowserEnv({
-      endpoint,
-      fetchImpl: async (url) => {
-        const normalized = String(url || '').replace(/^\//, '');
-        const filePath = path.resolve(__dirname, normalized);
-        if (!fs.existsSync(filePath)) {
-          return {
-            ok: false,
-            status: 404,
-            json: async () => ({})
-          };
-        }
-        const text = fs.readFileSync(filePath, 'utf8');
-        return {
-          ok: true,
-          status: 200,
-          json: async () => JSON.parse(text)
-        };
-      }
+      endpoint
     });
   } catch (error) {
     console.log('[run-serverless_browser] runtime config load failed:', error.message);
     runtimeEnv = {};
   }
+  if (beforeFetch == null) delete globalThis.fetch;
+  else globalThis.fetch = beforeFetch;
 
   const config = Object.assign({}, buildEnv, runtimeEnv);
   const browserKeys = getBrowserEnvKeys().sort();

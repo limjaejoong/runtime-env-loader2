@@ -1,4 +1,4 @@
-# secrets-env-loader
+# runtime-env-loader
 
 런타임 환경변수를 다음 소스에서 로드합니다.
 - 로컬 JSON 파일
@@ -11,7 +11,7 @@
 ## 설치 (로컬 패키지 사용)
 
 ```bash
-npm install ../secrets-env-loader
+npm install ../runtime-env-loader
 ```
 
 ## 샘플 실행
@@ -19,7 +19,7 @@ npm install ../secrets-env-loader
 이 저장소에는 로컬 확인용 샘플이 포함되어 있습니다.
 
 ```bash
-npm run sample:dev
+npm run sample:server:dev
 ```
 
 샘플은 `APP_ENV` 기준으로 아래 두 파일을 모두 읽습니다.
@@ -35,15 +35,12 @@ npm run sample:dev
 - `SECRET_NAME` (필수)
 
 실행 스크립트:
-- `npm run sample:dev`
-- `npm run sample:sqa`
-- `npm run sample:uat`
-- `npm run sample:prod`
-- `npm run sample:frontend:dev`
-- `npm run sample:frontend:sqa`
-- `npm run sample:frontend:uat`
-- `npm run sample:frontend:prod`
-- `npm run sample:spa`
+- `npm run sample:server:dev`
+- `npm run sample:server:sqa`
+- `npm run sample:server_browser:dev`
+- `npm run sample:server_browser:sqa`
+- `npm run sample:serverless_browser:dev`
+- `npm run sample:serverless_browser:sqa`
 
 로그에서 아래를 확인할 수 있습니다.
 - 로드된 `.env` 파일
@@ -55,11 +52,11 @@ npm run sample:dev
 
 프론트 샘플(`sample/run-server_browser.js`)은 아래를 검증합니다.
 - 서버에서 `getServerEnv`로 공개 키만 노출
-- 클라이언트에서 `loadBrowserEnv(fetchImpl)`로 런타임 설정 로드
+- 클라이언트에서 `loadBrowserEnv()`로 런타임 설정 로드
 - 빌드 설정 + 런타임 설정 병합
 
-SPA 샘플(`sample/run-serverless_browser.js`)은 서버 없이 `sample/runtime-config.json`을 읽어
-정적 배포 시나리오의 `build env + runtime env` 병합을 검증합니다.
+SPA 샘플(`sample/run-serverless_browser.js`)은 서버 없이 `/runtime-config.json` 엔드포인트를 호출해
+정적 배포 시나리오의 `build env + runtime env` 병합(실패 시 fallback)을 검증합니다.
 
 ## config 폴더 규칙
 
@@ -121,12 +118,12 @@ const {
   initRuntimeEnv,
   getServerEnv,
   getServerEnvKeys
-} = require('secrets-env-loader');
+} = require('runtime-env-loader');
 ```
 
 ```js
 // Browser 엔트리
-import { loadBrowserEnv, getBrowserEnv, getBrowserEnvKeys } from 'secrets-env-loader';
+import { loadBrowserEnv, getBrowserEnv, getBrowserEnvKeys } from 'runtime-env-loader';
 ```
 
 주의:
@@ -177,8 +174,10 @@ import { loadBrowserEnv, getBrowserEnv, getBrowserEnvKeys } from 'secrets-env-lo
 
 옵션:
 - `endpoint` string (기본값: `/api/runtime-config`)
-- `fetchImpl` function (기본값: `globalThis.fetch`)
 - `requestInit` object (`fetch`의 두 번째 인자)
+
+주의:
+- `loadBrowserEnv`는 내부적으로 `globalThis.fetch`를 사용합니다.
 
 ### `getBrowserEnv(key)`
 
@@ -208,7 +207,7 @@ const {
   initRuntimeEnv,
   getServerEnv,
   getServerEnvKeys
-} = require('secrets-env-loader');
+} = require('runtime-env-loader');
 
 await initRuntimeEnv({
   secretName: 'tac-api/uat',
@@ -228,7 +227,7 @@ const envKeys = getServerEnvKeys();
 ```js
 const {
   initRuntimeEnv
-} = require('secrets-env-loader');
+} = require('runtime-env-loader');
 
 const initResult = await initRuntimeEnv({
   secretName: 'tac-web/prod',
@@ -239,7 +238,7 @@ const initResult = await initRuntimeEnv({
 브라우저(클라이언트) 쪽:
 
 ```js
-import { loadBrowserEnv, getBrowserEnv, getBrowserEnvKeys } from 'secrets-env-loader';
+import { loadBrowserEnv, getBrowserEnv, getBrowserEnvKeys } from 'runtime-env-loader';
 
 const runtimeConfig = await loadBrowserEnv({
   endpoint: '/api/runtime-config'
@@ -253,7 +252,7 @@ const keys = getBrowserEnvKeys();
 샘플 파일: `sample/run-serverless_browser.js`
 
 ```js
-import { loadBrowserEnv } from 'secrets-env-loader';
+import { loadBrowserEnv } from 'runtime-env-loader';
 
 const buildEnv = {
   VITE_APP_NAME: import.meta.env.VITE_APP_NAME

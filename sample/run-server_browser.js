@@ -91,14 +91,17 @@ async function run() {
   }
 
   const runtimePayload = initResult.runtimeConfig.handler();
-  const runtimePublic = await loadBrowserEnv({
-    endpoint: '/api/runtime-config',
-    fetchImpl: async () => ({
-      ok: true,
-      status: 200,
-      json: async () => runtimePayload
-    })
+  const beforeFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => runtimePayload
   });
+  const runtimePublic = await loadBrowserEnv({
+    endpoint: '/api/runtime-config'
+  });
+  if (beforeFetch == null) delete globalThis.fetch;
+  else globalThis.fetch = beforeFetch;
   const buildPublic = {
     NEXT_PUBLIC_BUILD_MODE: runtimeEnv
   };

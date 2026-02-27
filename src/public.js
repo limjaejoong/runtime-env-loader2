@@ -5,15 +5,15 @@ let browserEnvCache = {};
 async function loadBrowserEnv(options = {}) {
   const {
     endpoint = '/api/runtime-config',
-    fetchImpl = (typeof globalThis !== 'undefined' ? globalThis.fetch : null),
     requestInit
   } = options;
+  const fetchFn = (typeof globalThis !== 'undefined' ? globalThis.fetch : null);
 
-  if (typeof fetchImpl !== 'function') {
-    throw new Error('loadBrowserEnv requires fetch implementation');
+  if (typeof fetchFn !== 'function') {
+    throw new Error('loadBrowserEnv requires globalThis.fetch');
   }
 
-  const response = await fetchImpl(endpoint, requestInit);
+  const response = await fetchFn(endpoint, requestInit);
   if (!response || !response.ok) {
     const status = response ? response.status : 'unknown';
     throw new Error(`Failed to load public env (status=${status})`);

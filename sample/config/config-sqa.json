@@ -1,8 +1,4 @@
 {
-  "LOG_LEVEL": "debug",
-  "API_BASE_URL": "https://api-sqa.example.com",
-  "FEATURE_X_ENABLED": "true",
-  "PUBLIC_REGION": "sqa",
-  "SQA_ONLY_FLAG": "true",
-  "SHARED_PRIORITY_KEY": "from-sqa"
+  "TEST_LOG_LEVEL": "info",
+  "TEST_ENV_KEY": "https://api-sqa.example.com"
 }
