@@ -14,26 +14,22 @@ async function bootstrapRuntimeEnv() {
     return;
   }
 
-  const secretName = process.env.RUNTIME_ENV_SECRET_NAME || process.env.SECRET_NAME || undefined;
-  const envName = process.env.RUNTIME_ENV_NAME || process.env.APP_ENV || process.env.NODE_ENV || 'local';
-  const region =
-    process.env.RUNTIME_ENV_REGION || process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION;
-  const configDir = process.env.RUNTIME_ENV_CONFIG_DIR || 'config';
-  const requireLoaded = parseBoolean(process.env.RUNTIME_ENV_REQUIRE_LOADED, false);
+  const secretName = process.env.SECRET_NAME || undefined;
+  const envName = process.env.APP_ENV || undefined;
   const runtimeConfigEnabled = parseBoolean(process.env.RUNTIME_ENV_CONFIG_ENABLED, false);
-  const requireSecretsManager = parseBoolean(process.env.RUNTIME_ENV_REQUIRE_SECRETS_MANAGER, true);
+  const requireSecretsManager = parseBoolean(process.env.RUNTIME_ENV_REQUIRE_LOADED, true);
+  const runtimeEnvDebug = parseBoolean(process.env.RUNTIME_ENV_DEBUG, false);
 
   const { initRuntimeEnv } = require('../src');
   const result = await initRuntimeEnv({
     secretName,
     envName,
-    region,
-    configDir,
-    runtimeConfigEnabled,
-    requireSecretsManager
+    runtimeConfigEnabled: runtimeConfigEnabled,
+    requireSecretsManager: requireSecretsManager,
+    debug: runtimeEnvDebug
   });
 
-  if (!result.loaded && requireLoaded) {
+  if (!result.loaded) {
     const message = result.errors?.map(error => error.message).join('; ');
     throw new Error(`runtime-env-loader failed: ${message || 'unknown error'}`);
   }

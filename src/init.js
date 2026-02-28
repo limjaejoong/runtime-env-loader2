@@ -86,10 +86,11 @@ async function initRuntimeEnv(options = {}) {
     secretName,
     envName,
     region = 'ap-northeast-2',
-    configDir = path.resolve(__dirname, 'config'),
+    configDir = path.resolve(process.cwd(), 'config'),
     runtimeConfigEnabled = false,
     requireSecretsManager = true,
-    transformEnvKey
+    transformEnvKey,
+    debug = false,
   } = options;
 
   const runtimeEnv = envName;
@@ -253,15 +254,20 @@ async function initRuntimeEnv(options = {}) {
     };
   }
 
+  if (debug) {
+    const debugLoadedKeys = Object.entries(mergedSource).reduce((acc, [key, value]) => {
+      if (value == null) return acc;
+      acc[key] = `${String(value)} (${mergedSourceMap[key] || 'unknown'})`;
+      return acc;
+    }, {});
+
+    console.log('[RUNTIME] keys', debugLoadedKeys);
+  }
+
   return {
     loaded: true,
     errors,
     runtimeConfig: runtimeConfigResult,
-    loadedKeys: Object.entries(mergedSource).reduce((acc, [key, value]) => {
-      if (value == null) return acc;
-      acc[key] = String(value);
-      return acc;
-    }, {})
   };
 }
 
