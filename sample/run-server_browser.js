@@ -84,10 +84,9 @@ async function run() {
     envName: runtimeEnv,
     configDir: path.resolve(__dirname, 'config'),
     runtimeConfigEnabled: true,
-    requireSecretsManager: false,
   });
 
-  if (!initResult.loaded) {
+  if (!initResult.success) {
     throw new Error(`initRuntimeEnv failed: ${JSON.stringify(initResult.errors)}`);
   }
 

@@ -82,11 +82,10 @@ async function run() {
     envName: runtimeEnv,
     region,
     configDir: path.resolve(__dirname, 'config'),
-    requireSecretsManager: false,
     runtimeConfigEnabled
   });
 
-  console.log('[run-server] loaded:', result.loaded);
+  console.log('[run-server] success:', result.success);
   console.log('[run-server] errors:', result.errors);
 
   const selected = {

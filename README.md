@@ -1,9 +1,9 @@
 # runtime-env-loader
 
-런타임 환경변수를 로드해 서버 `process.env`에 주입하고, 브라우저에는 공개 가능한 값만 노출하는 라이브러리 입니다.
+런타임에 환경변수를 로드해 서버 `process.env`에 주입하고, 브라우저에서는 공개된 값만 사용하도록 돕는 라이브러리 입니다.
 
 로드 소스:
-- 로컬 JSON (`config*.json`)
+- 로컬 JSON (`config/config*.json`)
 - AWS Secrets Manager
 
 ## 설치
@@ -14,24 +14,18 @@ npm install runtime-env-loader
 
 ## 동작 요약
 
-`initRuntimeEnv(options)` 순서:
+`initRuntimeEnv(options)`는 아래 순서로 로드하고, 뒤에서 로드된 값이 앞선 값을 덮어씁니다. 단, `config/config-local-override.json`은 이미 존재하는 키에만 override 됩니다.
+
 1. `config/config.json`
 2. `config/config-{env}.json`
 3. `secrets-manager`
-4. `config/config-local-override.json` (기존에 이미 있는 키에만 override)
+4. `config/config-local-override.json`
 
-우선순위(높음 → 낮음):
-- `config-local-override`
-- `secrets-manager`
-- `config-{env}`
-- `config`
-
-`requireSecretsManager=true`일 때 `secrets-manager` 로드 실패 시 `loaded=false`입니다.
+`secrets-manager` 로드 실패 시 `success=false`입니다.
 
 ## initRuntimeEnv 사전 조건
 
-- 기본 모드(`requireSecretsManager=true`)에서는 `AWS_PROFILE`, `SECRET_NAME`이 필요합니다.
-- 로컬 테스트처럼 Secrets Manager를 생략하려면 `requireSecretsManager=false`를 사용합니다.
+- AWS 자격 증명 로딩 방식(`AWS_PROFILE` 등)은 애플리케이션 실행 환경에 따라 다르며, 라이브러리 자체가 강제하지는 않습니다.
 - `config` 파일은 샘플 디렉토리에 있습니다. (`config.json`, `config-{env}.json`)
 
 ## API
@@ -49,26 +43,24 @@ npm install runtime-env-loader
 ### initRuntimeEnv(options)
 
 사전 조건:
-- 기본 모드(`requireSecretsManager=true`)에서는 실행 전에 `AWS_PROFILE`, `SECRET_NAME`이 설정되어 있어야 합니다.
+- 실행 전에 `AWS_PROFILE`, `SECRET_NAME`, `ENV_NAME` 변수가 설정되어 있어야 합니다.
 - 샘플은 `.env`를 사용하지만, CI/CD 변수/런타임 주입 등 다른 방식 사용이 가능합니다.
-- `configDir`가 가리키는 `config` 디렉토리는 필수입니다.
+- `configDir`는 기본값이 `process.cwd()/config`이며, 해당 디렉토리/파일이 없어도 Secrets Manager 로드만으로 성공할 수 있습니다.
 
 옵션:
-- `secretName` string (`requireSecretsManager=true`일 때 필수)
+- `secretName` string (필수)
 - `envName` string (필수, 예: `dev`, `sqa`)
 - `region` string (기본값: `ap-northeast-2`)
 - `configDir` string (기본값: `config`)
 - `runtimeConfigEnabled` boolean (기본값: `false`)
-- `requireSecretsManager` boolean (기본값: `true`)
 - `transformEnvKey`
   - 배열 매핑: `[{ org: string, dest: string }]`
   - (옵션, 로드 키명을 변환해서 주입)
 
 반환:
-- `loaded` boolean
+- `success` boolean
 - `errors` `{ source, message }[]`
 - `runtimeConfig` `null | { path, handler }`
-- `loadedKeys` `Record<string, string>` (`initRuntimeEnv`가 로드한 전체 key/value)
 
 ### getServerEnv(key)
 
@@ -98,6 +90,7 @@ npm install runtime-env-loader
 동작:
 - 응답이 `{ values, sourceMap }` 형태면 `values`에서 키 이름에 `publicKeyIncludes` 패턴이 포함된 항목만 캐시
 - 응답이 일반 JSON 객체면 그대로 캐시
+- 서버의 `runtimeConfig.handler()`는 로드된 전체 key/value와 `sourceMap`을 반환하며, 브라우저 쪽 `loadBrowserEnv()`가 그중 필요한 키만 필터링합니다.
 
 반환:
 - `Record<string, string> | object`
@@ -141,7 +134,7 @@ const result = await initRuntimeEnv({
   envName: 'dev'
 });
 
-if (!result.loaded) throw new Error(JSON.stringify(result.errors));
+if (!result.success) throw new Error(JSON.stringify(result.errors));
 console.log(getServerEnv('API_BASE_URL'));
 ```
 
@@ -171,20 +164,21 @@ const initResult = await initRuntimeEnv({
 import { loadBrowserEnv, getBrowserEnv } from 'runtime-env-loader';
 
 await loadBrowserEnv();
-console.log(getBrowserEnv('APP_NAME'));
+console.log(getBrowserEnv('NEXT_PUBLIC_FEATURE_X'));
 ```
 
 ### 3) 서버리스 + 브라우저 (UI 정적 빌드/Nginx)
 
-샘플 브라우저 코드:
+서버 코드:
 
 ```js
-import { loadBrowserEnv } from 'runtime-env-loader';
+const { initRuntimeEnv } = require('runtime-env-loader');
 
-const runtimeEnv = await loadBrowserEnv({
-  endpoint: '/runtime-config.json'
+const initResult = await initRuntimeEnv({
+  secretName: process.env.SECRET_NAME,
+  envName: 'dev',
+  runtimeConfigEnabled: true
 });
-console.log(runtimeEnv);
 ```
 
 설치 후 UI 프로젝트에서 실행 스크립트 예시:

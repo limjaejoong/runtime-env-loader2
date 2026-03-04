@@ -88,7 +88,6 @@ async function initRuntimeEnv(options = {}) {
     region = 'ap-northeast-2',
     configDir = path.resolve(process.cwd(), 'config'),
     runtimeConfigEnabled = false,
-    requireSecretsManager = true,
     transformEnvKey,
     debug = false,
   } = options;
@@ -140,25 +139,23 @@ async function initRuntimeEnv(options = {}) {
 
   // Priority layer 3: secret-manager
   try {
-    if (!secretName && requireSecretsManager) {
+    if (!secretName) {
       throw new Error('secretName is required');
     }
-    if (secretName) {
-      const secretSource = await loadFromSecretsManager({
-        secretName,
-        region
-      });
-      const transformedSecretSource = transformSourceKeys(
-        'secrets-manager',
-        secretSource,
-        normalizedTransformEnvKey,
-        errors
-      );
-      if (transformedSecretSource) {
-        secretsManagerLoaded = true;
-        loadedSources.push('secrets-manager');
-        applyLayer(mergedSource, mergedSourceMap, 'secrets-manager', transformedSecretSource);
-      }
+    const secretSource = await loadFromSecretsManager({
+      secretName,
+      region
+    });
+    const transformedSecretSource = transformSourceKeys(
+      'secrets-manager',
+      secretSource,
+      normalizedTransformEnvKey,
+      errors
+    );
+    if (transformedSecretSource) {
+      secretsManagerLoaded = true;
+      loadedSources.push('secrets-manager');
+      applyLayer(mergedSource, mergedSourceMap, 'secrets-manager', transformedSecretSource);
     }
   } catch (error) {
     errors.push({ source: 'secrets-manager', message: error.message });
@@ -183,7 +180,7 @@ async function initRuntimeEnv(options = {}) {
     errors.push({ source: 'config-local-override', message: error.message });
   }
 
-  if (requireSecretsManager && !secretsManagerLoaded) {
+  if (!secretsManagerLoaded) {
     setTrackedServerEnvKeys({});
     if (secretName) {
       errors.push({
@@ -197,7 +194,7 @@ async function initRuntimeEnv(options = {}) {
       });
     }
     return {
-      loaded: false,
+      success: false,
       errors,
       runtimeConfig: null,
       loadedKeys: {}
@@ -207,7 +204,7 @@ async function initRuntimeEnv(options = {}) {
   if (loadedSources.length === 0) {
     setTrackedServerEnvKeys({});
     return {
-      loaded: false,
+      success: false,
       errors,
       runtimeConfig: null,
       loadedKeys: {}
@@ -265,7 +262,7 @@ async function initRuntimeEnv(options = {}) {
   }
 
   return {
-    loaded: true,
+    success: true,
     errors,
     runtimeConfig: runtimeConfigResult,
   };

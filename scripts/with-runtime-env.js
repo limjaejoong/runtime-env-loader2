@@ -17,7 +17,6 @@ async function bootstrapRuntimeEnv() {
   const secretName = process.env.SECRET_NAME || undefined;
   const envName = process.env.APP_ENV || undefined;
   const runtimeConfigEnabled = parseBoolean(process.env.RUNTIME_ENV_CONFIG_ENABLED, false);
-  const requireSecretsManager = parseBoolean(process.env.RUNTIME_ENV_REQUIRE_LOADED, true);
   const runtimeEnvDebug = parseBoolean(process.env.RUNTIME_ENV_DEBUG, false);
 
   const { initRuntimeEnv } = require('../src');
@@ -25,11 +24,10 @@ async function bootstrapRuntimeEnv() {
     secretName,
     envName,
     runtimeConfigEnabled: runtimeConfigEnabled,
-    requireSecretsManager: requireSecretsManager,
     debug: runtimeEnvDebug
   });
 
-  if (!result.loaded) {
+  if (!result.success) {
     const message = result.errors?.map(error => error.message).join('; ');
     throw new Error(`runtime-env-loader failed: ${message || 'unknown error'}`);
   }

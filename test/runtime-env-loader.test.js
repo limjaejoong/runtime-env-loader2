@@ -51,38 +51,17 @@ async function run() {
 
   assert.ok(!getServerEnvKeys().includes('APP_NAME'));
 
-  const beforeRuntimeKeys = {
-    TEST_COMMON_KEY: process.env.TEST_COMMON_KEY,
-    TEST_LOG_LEVEL: process.env.TEST_LOG_LEVEL,
-    TEST_ENV_KEY: process.env.TEST_ENV_KEY
-  };
-  const beforeMappedKeys = {
-    MAPPED_COMMON_KEY: process.env.MAPPED_COMMON_KEY,
-    MAPPED_LOG_LEVEL: process.env.MAPPED_LOG_LEVEL
-  };
-  const runtimeInitWithoutSecrets = await initRuntimeEnv({
+  const runtimeInitWithoutSecretName = await initRuntimeEnv({
     envName: 'dev',
-    configDir: path.resolve(__dirname, '../sample/config'),
-    requireSecretsManager: false
+    configDir: path.resolve(__dirname, '../sample/config')
   });
-  assert.strictEqual(runtimeInitWithoutSecrets.loaded, true);
-  assert.strictEqual(getServerEnv('TEST_COMMON_KEY'), 'runtime-env-loader-sample');
-  assert.strictEqual(getServerEnv('TEST_LOG_LEVEL'), 'trace');
-  assert.strictEqual(getServerEnv('TEST_ENV_KEY'), 'https://api-local.example.com');
-
-  const runtimeInitWithKeyMapArray = await initRuntimeEnv({
-    envName: 'dev',
-    configDir: path.resolve(__dirname, '../sample/config'),
-    requireSecretsManager: false,
-    transformEnvKey: [
-      { org: 'TEST_COMMON_KEY', dest: 'MAPPED_COMMON_KEY' },
-      { org: 'TEST_LOG_LEVEL', dest: 'MAPPED_LOG_LEVEL' }
-    ]
-  });
-  assert.strictEqual(runtimeInitWithKeyMapArray.loaded, true);
-  assert.strictEqual(getServerEnv('MAPPED_COMMON_KEY'), 'runtime-env-loader-sample');
-  assert.strictEqual(getServerEnv('MAPPED_LOG_LEVEL'), 'trace');
-  assert.strictEqual(runtimeInitWithKeyMapArray.loadedKeys.MAPPED_COMMON_KEY, 'runtime-env-loader-sample');
+  assert.strictEqual(runtimeInitWithoutSecretName.success, false);
+  assert.ok(Array.isArray(runtimeInitWithoutSecretName.errors));
+  assert.ok(
+    runtimeInitWithoutSecretName.errors.some(
+      (error) => error && error.source === 'secrets-manager' && /secretName is required/.test(error.message)
+    )
+  );
 
   const beforeFetch = globalThis.fetch;
   globalThis.fetch = async () => ({
@@ -161,17 +140,6 @@ async function run() {
   else process.env.CUSTOM_PUBLIC_FLAG = beforeSelectedKeys.CUSTOM_PUBLIC_FLAG;
   if (beforeSelectedKeys.APP_NAME == null) delete process.env.APP_NAME;
   else process.env.APP_NAME = beforeSelectedKeys.APP_NAME;
-  if (beforeRuntimeKeys.TEST_COMMON_KEY == null) delete process.env.TEST_COMMON_KEY;
-  else process.env.TEST_COMMON_KEY = beforeRuntimeKeys.TEST_COMMON_KEY;
-  if (beforeRuntimeKeys.TEST_LOG_LEVEL == null) delete process.env.TEST_LOG_LEVEL;
-  else process.env.TEST_LOG_LEVEL = beforeRuntimeKeys.TEST_LOG_LEVEL;
-  if (beforeRuntimeKeys.TEST_ENV_KEY == null) delete process.env.TEST_ENV_KEY;
-  else process.env.TEST_ENV_KEY = beforeRuntimeKeys.TEST_ENV_KEY;
-  if (beforeMappedKeys.MAPPED_COMMON_KEY == null) delete process.env.MAPPED_COMMON_KEY;
-  else process.env.MAPPED_COMMON_KEY = beforeMappedKeys.MAPPED_COMMON_KEY;
-  if (beforeMappedKeys.MAPPED_LOG_LEVEL == null) delete process.env.MAPPED_LOG_LEVEL;
-  else process.env.MAPPED_LOG_LEVEL = beforeMappedKeys.MAPPED_LOG_LEVEL;
-
   console.log('runtime-env-loader tests passed');
 }
 
