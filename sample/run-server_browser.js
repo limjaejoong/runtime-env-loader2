@@ -62,18 +62,23 @@ async function run() {
   const runtimeEnv = normalizeEnvName(process.env.APP_ENV || process.env.NODE_ENV || 'dev');
   const loadedEnvFiles = loadEnvFiles(runtimeEnv);
   const awsProfile = process.env.AWS_PROFILE;
-  const secretName = process.env.SECRET_NAME;
+  const secretName =
+    process.env.SERVICE_NAME && process.env.APP_ENV
+      ? `${process.env.SERVICE_NAME}/${process.env.APP_ENV}`
+      : undefined;
   const region = process.env.AWS_REGION;
 
   console.log('[run-server_browser] start');
   console.log('[run-server_browser] runtimeEnv:', runtimeEnv);
   console.log('[run-server_browser] loaded env files:', loadedEnvFiles);
   console.log('[run-server_browser] AWS_PROFILE:', awsProfile || '(not set)');
-  console.log('[run-server_browser] SECRET_NAME:', secretName || '(not set)');
+  console.log('[run-server_browser] SERVICE_NAME:', process.env.SERVICE_NAME || '(not set)');
+  console.log('[run-server_browser] secretName(SERVICE_NAME/APP_ENV):', secretName || '(not set)');
 
   const missingRequired = [];
   if (!awsProfile) missingRequired.push('AWS_PROFILE');
-  if (!secretName) missingRequired.push('SECRET_NAME');
+  if (!process.env.SERVICE_NAME) missingRequired.push('SERVICE_NAME');
+  if (!process.env.APP_ENV) missingRequired.push('APP_ENV');
   if (missingRequired.length > 0) {
     throw new Error(`${missingRequired.join(', ')} is required. Set it in sample/.env and/or sample/.env.{env}`);
   }

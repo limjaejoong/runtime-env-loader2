@@ -14,7 +14,10 @@ async function bootstrapRuntimeEnv() {
     return;
   }
 
-  const secretName = process.env.SECRET_NAME || undefined;
+  const secretName =
+    process.env.SERVICE_NAME && process.env.APP_ENV
+      ? `${process.env.SERVICE_NAME}/${process.env.APP_ENV}`
+      : undefined;
   const envName = process.env.APP_ENV || undefined;
   const runtimeConfigEnabled = parseBoolean(process.env.RUNTIME_ENV_CONFIG_ENABLED, false);
   const runtimeEnvDebug = parseBoolean(process.env.RUNTIME_ENV_DEBUG, false);

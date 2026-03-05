@@ -43,7 +43,7 @@ npm install runtime-env-loader
 ### initRuntimeEnv(options)
 
 사전 조건:
-- 실행 전에 `AWS_PROFILE`, `SECRET_NAME`, `ENV_NAME` 변수가 설정되어 있어야 합니다.
+- 실행 전에 `AWS_PROFILE`, `SERVICE_NAME`, `APP_ENV` 변수가 설정되어 있어야 합니다.
 - 샘플은 `.env`를 사용하지만, CI/CD 변수/런타임 주입 등 다른 방식 사용이 가능합니다.
 - `configDir`는 기본값이 `process.cwd()/config`이며, 해당 디렉토리/파일이 없어도 Secrets Manager 로드만으로 성공할 수 있습니다.
 
@@ -129,9 +129,14 @@ npm run sample:server:dev
 ```js
 const { initRuntimeEnv, getServerEnv } = require('runtime-env-loader');
 
+const secretName =
+  process.env.SERVICE_NAME && process.env.APP_ENV
+    ? `${process.env.SERVICE_NAME}/${process.env.APP_ENV}`
+    : undefined;
+
 const result = await initRuntimeEnv({
-  secretName: process.env.SECRET_NAME,
-  envName: 'dev'
+  secretName,
+  envName: process.env.APP_ENV
 });
 
 if (!result.success) throw new Error(JSON.stringify(result.errors));
@@ -151,9 +156,14 @@ npm run sample:server_browser:dev
 ```js
 const { initRuntimeEnv } = require('runtime-env-loader');
 
+const secretName =
+  process.env.SERVICE_NAME && process.env.APP_ENV
+    ? `${process.env.SERVICE_NAME}/${process.env.APP_ENV}`
+    : undefined;
+
 const initResult = await initRuntimeEnv({
-  secretName: process.env.SECRET_NAME,
-  envName: 'dev',
+  secretName,
+  envName: process.env.APP_ENV,
   runtimeConfigEnabled: true
 });
 ```
@@ -174,9 +184,14 @@ console.log(getBrowserEnv('NEXT_PUBLIC_FEATURE_X'));
 ```js
 const { initRuntimeEnv } = require('runtime-env-loader');
 
+const secretName =
+  process.env.SERVICE_NAME && process.env.APP_ENV
+    ? `${process.env.SERVICE_NAME}/${process.env.APP_ENV}`
+    : undefined;
+
 const initResult = await initRuntimeEnv({
-  secretName: process.env.SECRET_NAME,
-  envName: 'dev',
+  secretName,
+  envName: process.env.APP_ENV,
   runtimeConfigEnabled: true
 });
 ```
